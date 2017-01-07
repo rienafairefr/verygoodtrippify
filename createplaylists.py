@@ -1,6 +1,7 @@
 import csv
 import json
 from collections import namedtuple
+from urllib.parse import urljoin, urlencode
 
 from configargparse import ArgumentParser
 from dotenv import load_dotenv, find_dotenv
@@ -34,10 +35,18 @@ except:
 
 def strip2(input):
     input = input.strip()
-    input = input.replace('«','')
-    input = input.replace('»','')
     return input
 
+import percache
+cache = percache.Cache(".cache")
+
+spotify_url = 'https://api.spotify.com/v1'
+search_url = urljoin(spotify_url,'/search')
+
+@cache
+def getalbum(input):
+    response = requests.get(search_url,q=urlencode(input))
+    pass
 with open('playlist_data.csv', 'w', encoding='utf-8') as playlist_data_file,\
         open('urls', 'r') as urls_file:
     datawriter = csv.writer(playlist_data_file, delimiter=';'
