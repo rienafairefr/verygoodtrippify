@@ -31,12 +31,18 @@ try:
 except:
     playlist_data = []
 
-#track=namedtuple('track',field_names=['date','episode_title','author','title'])
 
-with open('playlist_data', 'w', encoding='utf-8') as playlist_data_file,\
+def strip2(input):
+    input = input.strip()
+    input = input.replace('«','')
+    input = input.replace('»','')
+    return input
+
+with open('playlist_data.csv', 'w', encoding='utf-8') as playlist_data_file,\
         open('urls', 'r') as urls_file:
     datawriter = csv.writer(playlist_data_file, delimiter=';'
                             , quoting=csv.QUOTE_MINIMAL)
+    datawriter.writerow(['date','episode_title','raw','author','album','title'])
     for urlline in urls_file.readlines():
         url = urlline.rstrip('\n')
         print('treating '+url)
@@ -51,13 +57,15 @@ with open('playlist_data', 'w', encoding='utf-8') as playlist_data_file,\
         def treat_elem(element):
             elements_author = element.xpath('strong')
             elements_title = element.xpath('text()')
-            raw = element.text_content().strip()
+            raw = strip2(element.text_content())
+            if raw == '':
+                pass
             if len(elements_author)==1 :
-                author = element.xpath('strong')[0].text.strip()
+                author = strip2(element.xpath('strong')[0].text)
             else:
                 author = None
             if len(elements_title) == 1:
-                title = str(element.xpath('text()')[0]).strip()
+                title = strip2(str(element.xpath('text()')[0]))
                 if 'album' in title:
                     spl = title.split('album')
                     album = spl[1]
