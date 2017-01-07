@@ -1,3 +1,4 @@
+import csv
 import json
 from collections import namedtuple
 
@@ -32,8 +33,10 @@ except:
 
 #track=namedtuple('track',field_names=['date','episode_title','author','title'])
 
-with open('playlist_data','w') as playlist_data_file,\
-        open('urls','r') as urls_file:
+with open('playlist_data', 'w', encoding='utf-8') as playlist_data_file,\
+        open('urls', 'r') as urls_file:
+    datawriter = csv.writer(playlist_data_file, delimiter=';'
+                            , quoting=csv.QUOTE_MINIMAL)
     for urlline in urls_file.readlines():
         url = urlline.rstrip('\n')
         print('treating '+url)
@@ -48,13 +51,13 @@ with open('playlist_data','w') as playlist_data_file,\
         def treat_elem(element):
             elements_author = element.xpath('strong')
             elements_title = element.xpath('text()')
-            raw = element.text_content()
+            raw = element.text_content().strip()
             if len(elements_author)==1 :
-                author = element.xpath('strong')[0].text
+                author = element.xpath('strong')[0].text.strip()
             else:
                 author = None
             if len(elements_title) == 1:
-                title = str(element.xpath('text()')[0])
+                title = str(element.xpath('text()')[0]).strip()
                 if 'album' in title:
                     spl = title.split('album')
                     album = spl[1]
@@ -65,7 +68,7 @@ with open('playlist_data','w') as playlist_data_file,\
                 title = None
                 album = None
 
-            playlist_data.append([date, episode_title, raw, author, album, title])
+            datawriter.writerow([date, episode_title, raw, author, album, title])
 
 
         for h3 in tree.xpath(xpath1):
@@ -73,7 +76,7 @@ with open('playlist_data','w') as playlist_data_file,\
         for li in tree.xpath(xpath2):
             treat_elem(li)
 
-        playlist_data_file.write(json.dumps(playlist_data, indent=4))
+
 
 
 
