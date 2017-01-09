@@ -1,7 +1,7 @@
 import csv
 import json
 from collections import namedtuple
-from urllib.parse import urljoin, urlencode
+from urllib.parse import urljoin, urlencode, quote
 
 from configargparse import ArgumentParser
 from dotenv import load_dotenv, find_dotenv
@@ -34,49 +34,68 @@ except:
 
 
 def strip2(input):
+    if input is None: return None
     input = input.strip()
-    return input
+    # has enclosing double quotes
+    input = input.rstrip('«')
+    input = input.lstrip('»')
 
-import percache
-cache = percache.Cache(".cache")
+    # has enclosing dashes
+    input = input.rstrip('-')
+    input = input.lstrip('-')
 
-spotify_url = 'https://api.spotify.com/v1'
-search_url = urljoin(spotify_url,'/search')
+    return input.strip()
 
-@cache
-def getalbum(input):
-    response = requests.get(search_url,q=urlencode(input))
-    pass
-with open('playlist_data.csv', 'w', encoding='utf-8') as playlist_data_file,\
+import requests_cache
+
+requests_cache.install_cache('.cache')
+
+import spotipy
+sp = spotipy.Spotify(requests_session=False)
+
+
+def getpageepisode(urlepisode):
+    response = requests.get(urlepisode)
+    return response.text
+
+with open('playlist_data.csv', 'w', encoding='utf-8', newline='') as playlist_data_file,\
         open('urls', 'r') as urls_file:
     datawriter = csv.writer(playlist_data_file, delimiter=';'
                             , quoting=csv.QUOTE_MINIMAL)
-    datawriter.writerow(['date','episode_title','raw','author','album','title'])
+    datawriter.writerow(['date','episode_title','raw','author','album','title','spotify_uri'])
     for urlline in urls_file.readlines():
         url = urlline.rstrip('\n')
         print('treating '+url)
 
-        response = requests.get(url)
-        tree = html.fromstring(response.text)
+        tree = html.fromstring(getpageepisode(url))
 
         episode_title = str(tree.xpath(title_xpath)[0].text_content()).strip()
         date = str(tree.xpath(date_xpath)[0].text_content())
 
-
+        list_tracks = []
+        list_spotify_tracks = []
         def treat_elem(element):
             elements_author = element.xpath('strong')
             elements_title = element.xpath('text()')
-            raw = strip2(element.text_content())
+            raw = element.text_content().strip()
             if raw == '':
-                pass
+                return
             if len(elements_author)==1 :
                 author = strip2(element.xpath('strong')[0].text)
             else:
                 author = None
             if len(elements_title) == 1:
-                title = strip2(str(element.xpath('text()')[0]))
+                title = str(element.xpath('text()')[0]).strip()
                 if 'album' in title:
                     spl = title.split('album')
+                    album = spl[1]
+                    title = spl[0]
+                elif 'compilation' in title:
+                    spl = title.split('compilation')
+                    album = spl[1]
+                    title = spl[0]
+                elif 'EP' in title:
+                    spl = title.split('EP')
                     album = spl[1]
                     title = spl[0]
                 else:
@@ -85,7 +104,27 @@ with open('playlist_data.csv', 'w', encoding='utf-8') as playlist_data_file,\
                 title = None
                 album = None
 
-            datawriter.writerow([date, episode_title, raw, author, album, title])
+            if 'single' in raw.lower() and album is None:
+                album = '(single)'
+
+            author = strip2(author)
+            album = strip2(album)
+            title = strip2(title)
+
+            # first, naive track search
+            q = 'album:%s artist:%s track:%s'%(album,author,title)
+            search_tracks = sp.search(q=q)['tracks']
+            if search_tracks['total']==1:
+                #yay
+                spotify_track = search_tracks['items'][0]
+                list_spotify_tracks.append(spotify_track)
+                spotify_track_id = spotify_track['uri']
+            else:
+                spotify_track_id = None
+
+            track = [date, episode_title, raw, author, album, title, spotify_track_id]
+            list_tracks.append(track)
+            datawriter.writerow(track)
 
 
         for h3 in tree.xpath(xpath1):
@@ -93,14 +132,4 @@ with open('playlist_data.csv', 'w', encoding='utf-8') as playlist_data_file,\
         for li in tree.xpath(xpath2):
             treat_elem(li)
 
-
-
-
-
-
-
-    exit(-1)
-
-
-
-
+        pass
