@@ -11,8 +11,7 @@ from xml.etree import ElementTree as ET
 import requests_cache
 load_dotenv(find_dotenv())
 
-xpath1 = '//*[@id="content"]/div[3]/div[2]/div/div/div[1]/article/h3'
-xpath2 = '//*[@id="content"]/div[3]/div[2]/div/div/div[1]/article/ul/li'
+
 title_xpath ='//*[@id="content"]/div[3]/div[1]/div/div[2]/div[2]/h1'
 date_xpath ='//*[@id="content"]/div[3]/div[1]/div/div[1]/p[1]'
 
@@ -44,9 +43,7 @@ def strip2(input):
 requests_cache.install_cache('.cache')
 
 
-def getpageepisode(urlepisode):
-    response = requests.get(urlepisode)
-    return response.text
+
 
 with open('playlist_data.csv', 'w', encoding='utf-8', newline='') as playlist_data_file,\
         open('urls', 'r') as urls_file:
