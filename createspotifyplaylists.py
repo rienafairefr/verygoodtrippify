@@ -12,15 +12,8 @@ from lxml import html
 from xml.etree import ElementTree as ET
 import pandas
 
-load_dotenv(find_dotenv())
 
-parser = ArgumentParser()
-parser.add_argument('-c','--cid',help='Spotify API key',env_var='SPOTIFY_CLIENT_ID')
-parser.add_argument('-s','--cs', help='Spotify API key',env_var='SPOTIFY_CLIENT_SECRET')
 
-arguments = parser.parse_args()
-spotify_client_id = arguments.cid
-spotify_client_secret = arguments.cs
 
 xpath1 = '//*[@id="content"]/div[3]/div[2]/div/div/div[1]/article/h3'
 xpath2 = '//*[@id="content"]/div[3]/div[2]/div/div/div[1]/article/ul/li'

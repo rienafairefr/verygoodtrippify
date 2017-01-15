@@ -4,3 +4,4 @@ urls
 playlist_data*
 ~*.xlsx
 .cache*
+.*
