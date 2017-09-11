@@ -1,0 +1,8 @@
+requests
+lxml
+requests-cache
+python-dotenv
+configargparse
+spotipy
+PyLD
+python-dateutil

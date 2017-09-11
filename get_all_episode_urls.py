@@ -1,22 +1,23 @@
-from urllib.parse import urlsplit, urljoin
+from urllib.parse import urljoin
 
 import requests
 from lxml import html
 
-
 urlmain = 'https://www.franceinter.fr/emissions/very-good-trip'
 
-xpath = '//*[@id="content"]/div[3]/div[2]/div/div/div[1]/div[2]/section/article/div/div[2]/div[2]/header/div/a'
+xpath = '//a[@class=\'rich-section-list-item-content-title\']/@href[\'href\']'
 
 with open('urls','w') as urls_file:
-    for i in range(1, 20):
+    for i in range(1, 50):
         fetched_url = urlmain
         response = requests.get(fetched_url, params=dict(p=i))
         if not response.ok:
+            print('response not ok from %s' % fetched_url)
             break
 
         tree = html.fromstring(response.text)
 
-        for a in tree.xpath(xpath):
-            page_url = urljoin(fetched_url,a.attrib['href'])
+        for href in tree.xpath(xpath):
+            page_url = urljoin(urlmain, href)
+            print(page_url)
             urls_file.write(page_url+'\n')

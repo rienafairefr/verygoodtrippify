@@ -1,3 +1,7 @@
+import json
+import random
+
+import dateutil.parser
 from configargparse import ArgumentParser
 from collections import namedtuple
 
@@ -6,13 +10,16 @@ import requests_cache
 import spotipy
 from dotenv import find_dotenv
 from dotenv import load_dotenv
-from lxml import html
+from lxml import html, etree
 from spotipy import util
+from pyld import jsonld
 
-xpath1 = '//*[@id="content"]/div[3]/div[2]/div/div/div[1]/article/h3'
-xpath2 = '//*[@id="content"]/div[3]/div[2]/div/div/div[1]/article/ul/li'
-title_xpath = '//*[@id="content"]/div[3]/div[1]/div/div[2]/div[2]/h1'
-date_xpath = '//*[@id="content"]/div[3]/div[1]/div/div[1]/p[1]'
+xpath1 = '//article[@class=\'content-body\']/h3'
+xpath2 = '//article[@class=\'content-body\']/ul/li'
+xpath3 = '//*[@id="content"]/div[4]/div[2]/div/div/div[1]/article/p[3]'
+title_xpath = '//*[@class=\'cover-portrait-actions-title\']'
+date_xpath = '//*[@class=\'cover-emission-period\']'
+
 
 colon_not_in_quote = '(:)(?=(?:[^\"]|\"[^\"]*\")*$)'
 
@@ -43,6 +50,7 @@ else:
     exit(-1)
 
 spotify_user_id = sp.me()['id']
+
 
 def getpageepisode(urlepisode):
     requests_cache.install_cache('.cache')
@@ -80,93 +88,98 @@ TrackwithSpotifyInfo = namedtuple('TrackwithSpotifyInfo',field_names=['track_inf
 def treat_url(url):
     tree = html.fromstring(getpageepisode(url))
 
-    episode_title = str(tree.xpath(title_xpath)[0].text_content()).strip()
-    date = str(tree.xpath(date_xpath)[0].text_content())
+    ld_json = tree.xpath('//script[@type=\'application/ld+json\']')[0].text
+
+    data = json.loads(ld_json)
+
+    episode_title = data['headline']
+    date = dateutil.parser.parse(data['datePublished'])
+    formatted_date = date.strftime('%Y-%m-%d')
 
     list_tracks = []
-
-    def treat_to_spotify(track_info):
-        requests_cache.install_cache('.spotifycache')
-        album = track_info.album
-        author = track_info.author
-        title = track_info.title
-        # first, naive track searches
-        qs = (
-            'album:%s artist:%s track:%s' % (album, author, title),
-            'artist:%s track:%s' % (author, title),
-            '%s %s %s' % (album, author, title),
-            '%s %s' % (title, author),
-            '%s %s' % (title, author.replace('and', '&')),
-            '%s %s' % (title, author.replace('&', 'and')),
-            ('%s %s' % (title, author)).encode('ascii', errors='ignore')
-        )
-
-        for q in qs:
-            search_tracks = sp.search(q=q)['tracks']
-            if search_tracks['total'] == 1:
-                # yay
-                spotify_track = search_tracks['items'][0]
-                return spotify_track['uri']
-
-        return ''
-
+    #
+    # def treat_to_spotify(track_info):
+    #     requests_cache.install_cache('.spotifycache')
+    #     album = track_info.album
+    #     author = track_info.author
+    #     title = track_info.title
+    #     # first, naive track searches
+    #     qs = (
+    #         'album:%s artist:%s track:%s' % (album, author, title),
+    #         'artist:%s track:%s' % (author, title),
+    #         '%s %s %s' % (album, author, title),
+    #         '%s %s' % (title, author),
+    #         '%s %s' % (title, author.replace('and', '&')),
+    #         '%s %s' % (title, author.replace('&', 'and')),
+    #         ('%s %s' % (title, author)).encode('ascii', errors='ignore')
+    #     )
+    #
+    #     for q in qs:
+    #         search_tracks = sp.search(q=q)['tracks']
+    #         if search_tracks['total'] == 1:
+    #             # yay
+    #             spotify_track = search_tracks['items'][0]
+    #             return spotify_track['uri']
+    #
+    #     return ''
+    #
     def treat_elem(element):
-        elements_author = element.xpath('strong')
-        elements_title = element.xpath('text()')
+    #     elements_author = element.xpath('strong')
+    #     elements_title = element.xpath('text()')
         raw = element.text_content().strip()
-        if raw == '':
-            return
-        if len(elements_author) == 1:
-            author = element.xpath('strong')[0].text.strip()
-        else:
-            author = None
-        if len(elements_title) == 1:
-            title = normalise(str(element.xpath('text()')[0]))
-            title = title.lstrip(' ')
-            title = title.lstrip(':')
-            if 'extrait de l\'album' in title:
-                spl = title.split('extrait de l\'album')
-                album = spl[1]
-                title = spl[0]
-            elif 'album' in title:
-                spl = title.split('album')
-                album = spl[1]
-                title = spl[0]
-            elif 'compilation' in title:
-                spl = title.split('compilation')
-                album = spl[1]
-                title = spl[0]
-            elif 'EP' in title:
-                spl = title.split('EP')
-                album = spl[1]
-                title = spl[0]
-            else:
-                album = None
-        else:
-            title = None
-            album = None
+    #     if raw == '':
+    #         return
+    #     if len(elements_author) == 1:
+    #         author = element.xpath('strong')[0].text.strip()
+    #     else:
+    #         author = None
+    #     if len(elements_title) == 1:
+    #         title = normalise(str(element.xpath('text()')[0]))
+    #         title = title.lstrip(' ')
+    #         title = title.lstrip(':')
+    #         if 'extrait de l\'album' in title:
+    #             spl = title.split('extrait de l\'album')
+    #             album = spl[1]
+    #             title = spl[0]
+    #         elif 'album' in title:
+    #             spl = title.split('album')
+    #             album = spl[1]
+    #             title = spl[0]
+    #         elif 'compilation' in title:
+    #             spl = title.split('compilation')
+    #             album = spl[1]
+    #             title = spl[0]
+    #         elif 'EP' in title:
+    #             spl = title.split('EP')
+    #             album = spl[1]
+    #             title = spl[0]
+    #         else:
+    #             album = None
+    #     else:
+    #         title = None
+    #         album = None
+    #
+    #     if 'single' in raw.lower() and album is None:
+    #         album = '(single)'
+    #
+    #     author = strip3(author)
+    #     album = strip3(album)
+    #     title = strip3(title)
+    #
+        list_tracks.append(raw)
 
-        if 'single' in raw.lower() and album is None:
-            album = '(single)'
+    article = tree.xpath('//article')[0]
 
-        author = strip3(author)
-        album = strip3(album)
-        title = strip3(title)
+    for elem in tree.xpath(xpath3):
+        treat_elem(elem)
 
-        track_info = TrackInfo(date=date, episode_title=episode_title,
-                               raw=raw, author=author, album=album, title=title)
-        list_tracks.append(track_info)
+    #
+    # list_spotify_track_infos = []
+    # for track_info in list_tracks:
+    #     list_spotify_track_infos.append(TrackwithSpotifyInfo(track_info=track_info,spotify_uri=treat_to_spotify(track_info)))
 
-    for h3 in tree.xpath(xpath1):
-        treat_elem(h3)
-    for li in tree.xpath(xpath2):
-        treat_elem(li)
 
-    list_spotify_track_infos = []
-    for track_info in list_tracks:
-        list_spotify_track_infos.append(TrackwithSpotifyInfo(track_info=track_info,spotify_uri=treat_to_spotify(track_info)))
-
-    playlist_title = 'Very Good Trip \r\n' + date +'\r\n'+episode_title
+    playlist_title = 'Very Good Trip \r\n' + formatted_date +'\r\n'+episode_title
 
     playlists = sp.user_playlists(spotify_user_id)
     for playlist_data in playlists['items']:
@@ -175,7 +188,11 @@ def treat_url(url):
     else:
         playlist_data = sp.user_playlist_create(spotify_user_id,playlist_title)
 
-    uris = [spotify_track_info.spotify_uri for spotify_track_info in list_spotify_track_infos if spotify_track_info.spotify_uri!='']
+    #uris = [spotify_track_info.spotify_uri for spotify_track_info in list_spotify_track_infos if spotify_track_info.spotify_uri!='']
 
-    addition = sp.user_playlist_replace_tracks(spotify_user_id,playlist_data['id'], uris)
+    #addition = sp.user_playlist_replace_tracks(spotify_user_id,playlist_data['id'], uris)
     pass
+
+if __name__== "__main__":
+    url = random.choice(list(open('urls')))
+    treat_url(url.strip())
