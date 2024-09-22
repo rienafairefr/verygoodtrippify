@@ -52,12 +52,6 @@ else:
 spotify_user_id = sp.me()['id']
 
 
-def getpageepisode(urlepisode):
-    requests_cache.install_cache('.cache')
-    response = requests.get(urlepisode)
-    return response.text
-
-
 def normalise(input):
     if input is None: return None
     input = input.strip()
